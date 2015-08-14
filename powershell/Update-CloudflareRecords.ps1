@@ -5,9 +5,7 @@
     [string] $key = ""
 )
 
-$authHeaders = @{
-    "X-Auth-Email" = $email;
-    "X-Auth-Key" = $key }
+$authHeaders = @{ "X-Auth-Email" = $email, "X-Auth-Key" = $key }
 
 $zoneResponseRaw = Invoke-WebRequest -Method Get -Uri "https://api.cloudflare.com/client/v4/zones" -Headers  $authHeaders
 $zoneResponse = ConvertFrom-Json ($zoneResponseRaw).Content
@@ -35,11 +33,11 @@ $zoneResponse.result | % {
                     -Uri "https://api.cloudflare.com/client/v4/zones/$zoneId/dns_records/$recordId" `
                     -Method Put -Headers  $updateHeaders `
                     -Body (ConvertTo-Json `
-                        @{ `
-                            "id" = "$recordId"; `
-                            "type" = $_.type; `
+                        @{
+                            "id" = "$recordId";
+                            "type" = $_.type;
                             "name" = $_.name;
-                            "content" = $newIp; `
+                            "content" = $newIp;
                         })
             } catch {
                 $exceptionStream = $_.Exception.Response.GetResponseStream()
