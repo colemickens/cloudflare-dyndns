@@ -26,7 +26,7 @@ $zoneResponse.result | % {
             New-Object psobject -Property @{ "name" = $_.name; "response" = $_.content; "action" = "skipped" }
             $action = "skipped"
         }
-        elseif ($records -Contains $_.content)
+        elseif ( ($records -Contains $_.content) -and ($_.Type -eq "A") )
         {
             $updateHeaders = $authHeaders.Clone()
             $updateHeaders += @{"Content-Type" = "application/json"}
