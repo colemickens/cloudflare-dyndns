@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "flag"
     "fmt"
+    "github.com/miekg/dns"
     "io/ioutil"
     "log"
     "net/http"
@@ -15,9 +16,9 @@ var key = flag.String("key", "abc", "api key from cloudflare")
 
 var email = flag.String("email", "someone@example.com", "email address for cloudflare")
 
-var records = flag.String("records", "mickens.us,\\*.mickens.us", "the names of the records to update")
+var records = flag.String("records", "mickens.us,*.mickens.us", "the names of the records to update")
 
-var newIP = flag.String("newIP", "77.88.99.01", "the new ip address for the replacement")
+var newIP string
 
 // very incomplete, but as much as we should need
 type zoneListResponse struct {
@@ -53,8 +54,24 @@ var recordsToUpdate []string
 func init() {
     flag.Parse()
     recordsToUpdate = strings.Split(*records, ",")
-    log.Println("Records to update", recordsToUpdate)
-    log.Println("New ip", *newIP)
+
+    m := new(dns.Msg)
+    m.SetQuestion("o-o.myaddr.l.google.com.", dns.TypeTXT)
+    c := new(dns.Client)
+    in, _, err := c.Exchange(m, "ns1.google.com:53")
+    if err != nil {
+        panic(err)
+    }
+
+    if t, ok := in.Answer[0].(*dns.TXT); ok {
+        newIP = t.Txt[0]
+    } else {
+        panic("failed to lookup ip from google")
+    }
+
+    if len(*key) == 0 {
+        panic("must provide api key")
+    }
 }
 
 func authHeaders(header http.Header) {
@@ -79,17 +96,12 @@ func main() {
 
     jsonDecoder := json.NewDecoder(zoneListResp.Body)
     defer zoneListResp.Body.Close()
-    /*
-    contents, _ := ioutil.ReadAll(zoneListResp.Body)
-    log.Println(string(contents))
-    */
+
     var zoneList zoneListResponse
     err = jsonDecoder.Decode(&zoneList)
     if err != nil {
         panic(err)
     }
-
-    log.Println(zoneList)
 
     for _, zone := range zoneList.Result {
         url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", zone.ID)
@@ -115,10 +127,13 @@ func main() {
         }
 
         for _, currentRecord := range recordList.Result {
-            log.Printf("checking %s %s %s", currentRecord.Name, currentRecord.Type, currentRecord.Content)
             for _, recordToUpdate := range recordsToUpdate {
                 if recordToUpdate == currentRecord.Name && currentRecord.Type == "A" {
-                    log.Printf("%s updating...\n", currentRecord.Name)
+                    if (currentRecord.Content == newIP) {
+                        log.Printf("skipping %s... already correct\n", currentRecord.Name)
+                        continue
+                    }
+                    log.Printf("updating %s...\n", currentRecord.Name)
 
                     updateURL := fmt.Sprintf(
                         "https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s",
@@ -128,7 +143,7 @@ func main() {
                     updateRecordRequestBody := updateRecordRequest{
                         ID: currentRecord.ID,
                         Name: currentRecord.Name,
-                        Content: *newIP,
+                        Content: newIP,
                         Type: currentRecord.Type,
                     }
 
