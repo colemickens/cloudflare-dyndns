@@ -1,0 +1,12 @@
+[Unit]
+Description=Cloudflare-dyndns
+
+[Service]
+Type=simple
+ExecStart=/home/cole/Code/colemickens/cloudflare-dyndns/golang/bin/cloudflare-dyndns \
+    -key "" \
+    -email "cole.mickens@gmail.com" \
+    -records "*.mickens.xxx,mickens.xxx,*.mickens.io,mickens.io,recessionomics.us,www.recessionomics.us,*.mickens.me,mickens.me,*.mickens.tv,mickens.tv,*.mickens.us,mickens.us,cole.mickens.us"
+
+[Install]
+WantedBy=multi-user.target
