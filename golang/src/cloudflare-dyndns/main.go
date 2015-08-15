@@ -51,10 +51,7 @@ type updateRecordRequest struct {
 
 var recordsToUpdate []string
 
-func init() {
-    flag.Parse()
-    recordsToUpdate = strings.Split(*records, ",")
-
+func getWanIP() string {
     m := new(dns.Msg)
     m.SetQuestion("o-o.myaddr.l.google.com.", dns.TypeTXT)
     c := new(dns.Client)
@@ -64,24 +61,13 @@ func init() {
     }
 
     if t, ok := in.Answer[0].(*dns.TXT); ok {
-        newIP = t.Txt[0]
-    } else {
-        panic("failed to lookup ip from google")
+        return t.Txt[0]
     }
 
-    if len(*key) == 0 {
-        panic("must provide api key")
-    }
+    panic("failed to lookup ip from google")
 }
 
-func authHeaders(header http.Header) {
-    header.Set("X-Auth-Email", *email)
-    header.Set("X-Auth-Key", *key)
-}
-
-func main() {
-    client := &http.Client{}
-
+func getZones(client *http.Client) zoneListResponse {
     zoneRequest, err := http.NewRequest("GET", "https://api.cloudflare.com/client/v4/zones", nil)
     if err != nil {
         panic(err)
@@ -103,80 +89,116 @@ func main() {
         panic(err)
     }
 
+    return zoneList
+}
+
+func getRecords(client *http.Client, zoneID string) recordListResponse {
+    url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", zoneID)
+    recordRequest, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        panic(err)
+    }
+
+    authHeaders(recordRequest.Header)
+
+    recordListResp, err := client.Do(recordRequest)
+    if err != nil {
+        panic(err)
+    }
+
+    jsonDecoder := json.NewDecoder(recordListResp.Body)
+    defer recordListResp.Body.Close()
+
+    var recordList recordListResponse
+    err = jsonDecoder.Decode(&recordList)
+    if err != nil {
+        panic(err)
+    }
+
+    return recordList
+}
+
+func updateRecord(client *http.Client, zoneID, recordID, name, typ, content string) error {
+    updateURL := fmt.Sprintf(
+        "https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s",
+        zoneID,
+        recordID)
+
+    updateRecordRequestBody := updateRecordRequest{
+        ID: recordID,
+        Name: name,
+        Content: content,
+        Type: typ,
+    }
+
+    var buffer bytes.Buffer
+    jsonEncoder := json.NewEncoder(&buffer)
+    err := jsonEncoder.Encode(updateRecordRequestBody)
+    if err != nil {
+        return err
+    }
+
+    updateRequest, err := http.NewRequest("PUT", updateURL, &buffer)
+    if err != nil {
+        return err
+    }
+
+    authHeaders(updateRequest.Header)
+    updateRequest.Header.Set("Content-Type", "application/json")
+
+    updateRecordResponse, err := client.Do(updateRequest)
+    if err != nil {
+        return err
+    }
+
+    log.Println(updateRecordResponse.Status)
+    if updateRecordResponse.StatusCode != 200 {
+        contents, _ := ioutil.ReadAll(updateRecordResponse.Body)
+        updateRecordResponse.Body.Close()
+        return fmt.Errorf(string(contents))
+    }
+
+    return nil
+}
+
+func init() {
+    flag.Parse()
+    recordsToUpdate = strings.Split(*records, ",")
+
+    newIP = getWanIP()
+
+    if len(*key) == 0 {
+        panic("must provide api key")
+    }
+}
+
+func authHeaders(header http.Header) {
+    header.Set("X-Auth-Email", *email)
+    header.Set("X-Auth-Key", *key)
+}
+
+func main() {
+    client := &http.Client{}
+    zoneList := getZones(client)
+
     for _, zone := range zoneList.Result {
-        url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", zone.ID)
-        recordRequest, err := http.NewRequest("GET", url, nil)
-        if err != nil {
-            panic(err)
-        }
+        recordList := getRecords(client, zone.ID)
 
-        authHeaders(recordRequest.Header)
-
-        recordListResp, err := client.Do(recordRequest)
-        if err != nil {
-            panic(err)
-        }
-
-        jsonDecoder := json.NewDecoder(recordListResp.Body)
-        defer recordListResp.Body.Close()
-
-        var recordList recordListResponse
-        err = jsonDecoder.Decode(&recordList)
-        if err != nil {
-            panic(err)
-        }
-
-        for _, currentRecord := range recordList.Result {
-            for _, recordToUpdate := range recordsToUpdate {
-                if recordToUpdate == currentRecord.Name && currentRecord.Type == "A" {
-                    if (currentRecord.Content == newIP) {
-                        log.Printf("skipping %s... already correct\n", currentRecord.Name)
+        for _, record := range recordList.Result {
+            for _, potentialRecord := range recordsToUpdate {
+                if record.Name == potentialRecord && record.Type == "A" {
+                    if (record.Content == newIP) {
+                        log.Printf("skipping %s... already correct\n", record.Name)
                         continue
                     }
-                    log.Printf("updating %s...\n", currentRecord.Name)
+                    log.Printf("updating %s...\n", record.Name)
 
-                    updateURL := fmt.Sprintf(
-                        "https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s",
-                        zone.ID,
-                        currentRecord.ID)
-
-                    updateRecordRequestBody := updateRecordRequest{
-                        ID: currentRecord.ID,
-                        Name: currentRecord.Name,
-                        Content: newIP,
-                        Type: currentRecord.Type,
-                    }
-
-                    var buffer bytes.Buffer
-                    jsonEncoder := json.NewEncoder(&buffer)
-                    err = jsonEncoder.Encode(updateRecordRequestBody)
+                    err := updateRecord(client, zone.ID, record.ID, record.Name, record.Type, record.Content)
                     if err != nil {
                         panic(err)
                     }
 
-                    updateRequest, err := http.NewRequest("PUT", updateURL, &buffer)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    authHeaders(updateRequest.Header)
-                    updateRequest.Header.Set("Content-Type", "application/json")
-
-                    updateRecordResponse, err := client.Do(updateRequest)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    log.Println(updateRecordResponse.Status)
-                    if updateRecordResponse.StatusCode != 200 {
-                        contents, _ := ioutil.ReadAll(updateRecordResponse.Body)
-                        updateRecordResponse.Body.Close()
-                        log.Println(string(contents))
-                    }
-
-                    _ = updateRecordResponse
-
-                    log.Printf("%s updated...\n", currentRecord.Name)
+                    log.Printf("%s updated...\n", record.Name)
                 }
             }
         }
