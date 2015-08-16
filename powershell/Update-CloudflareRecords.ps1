@@ -1,11 +1,12 @@
 ﻿param(
-    [string[]] $records = "",
-    [string] $newIp = "",
+    [string[]] $records = @(),
     [string] $email = "",
     [string] $key = ""
 )
 
 $authHeaders = @{ "X-Auth-Email" = $email, "X-Auth-Key" = $key }
+
+$newIp = (Resolve-DnsName -Name "o-o.myaddr.l.google.com." -Type TXT)[0]
 
 $zoneResponseRaw = Invoke-WebRequest -Method Get -Uri "https://api.cloudflare.com/client/v4/zones" -Headers  $authHeaders
 $zoneResponse = ConvertFrom-Json ($zoneResponseRaw).Content
