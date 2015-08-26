@@ -1,1 +1,6 @@
 apikey.md
+
+bin
+pkg
+vendor/*/
+systemd/cloudflare-dyndns.config

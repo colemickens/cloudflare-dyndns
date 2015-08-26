@@ -1,0 +1,10 @@
+[Unit]
+Description=Cloudflare-dyndns
+
+[Service]
+Type=simple
+ExecStart=/home/cole/Code/colemickens/cloudflare-dyndns/golang/bin/cloudflare-dyndns
+EnvironmentFile=/etc/cloudflare-dyndns/cloudflare-dyndns.json
+
+[Install]
+WantedBy=multi-user.target

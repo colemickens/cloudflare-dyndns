@@ -12,11 +12,20 @@ import (
     "strings"
 )
 
-var key = flag.String("key", "abc", "api key from cloudflare")
+const emailCli string = "email"
+const apiKeyCli string = "apikey"
+const recordsCli string = "records"
 
-var email = flag.String("email", "someone@example.com", "email address for cloudflare")
 
-var records = flag.String("records", "mickens.us,*.mickens.us", "the names of the records to update")
+const emailEnv string = "CLOUDFLARE_EMAIL"
+const apiKeyEnv string = "CLOUDFLARE_APIKEY"
+const recordsEnv string = "CLOUDFLARE_RECORDS"
+
+var key = flag.String(apiKeyCli, "", "api key from cloudflare")
+
+var email = flag.String(emailCli, "", "email address for cloudflare")
+
+var records = flag.String(recordsCli, "", "the names of the records to update")
 
 var newIP string
 
@@ -164,6 +173,18 @@ func updateRecord(client *http.Client, zoneID, recordID, name, typ, content stri
 func init() {
     flag.Parse()
     recordsToUpdate = strings.Split(*records, ",")
+
+    if *records == "" && os.Getenv(recordsEnv) == "" {
+        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", recordsCli, recordsEnv))
+    }
+
+    if *records == "" && os.Getenv(emailEnv) == "" {
+        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", emailCli, emailEnv))
+    }
+
+    if *records == "" && os.Getenv(apiKeyEnv) == "" {
+        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", apiKeyCli, apiKeyEnv))
+    }
 
     newIP = getWanIP()
 
