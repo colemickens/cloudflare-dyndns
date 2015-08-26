@@ -1,4 +1,5 @@
 build:
+	gb vendor restore
 	gb build
 
 run: build
@@ -8,8 +9,8 @@ run: build
 		-records "*.mickens.xxx,mickens.xxx,*.mickens.io,mickens.io,recessionomics.us,www.recessionomics.us,*.mickens.me,mickens.me,*.mickens.tv,mickens.tv,*.mickens.us,mickens.us,cole.mickens.us"
 
 install-systemd:
-	sudo mkdir /etc/cloudflare-dyndns
-	sudo cp cloudflare-dyndns.config /etc/cloudflare-dyndns/
+	sudo mkdir -p /etc/cloudflare-dyndns
+	sudo cp systemd/cloudflare-dyndns.config /etc/cloudflare-dyndns/
 	sudo cp systemd/cloudflare-dyndns.service /etc/systemd/system/
 	sudo cp systemd/cloudflare-dyndns.timer /etc/systemd/system/
 	sudo systemctl enable cloudflare-dyndns.service

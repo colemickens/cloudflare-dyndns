@@ -8,26 +8,30 @@ import (
     "github.com/miekg/dns"
     "io/ioutil"
     "log"
+    "os"
     "net/http"
     "strings"
 )
 
-const emailCli string = "email"
-const apiKeyCli string = "apikey"
-const recordsCli string = "records"
+const (
+    envCli string = "env"
+    emailCli string = "email"
+    apiKeyCli string = "apikey"
+    recordsCli string = "records"
 
+    emailEnv string = "CLOUDFLARE_EMAIL"
+    apiKeyEnv string = "CLOUDFLARE_APIKEY"
+    recordsEnv string = "CLOUDFLARE_RECORDS"
+)
 
-const emailEnv string = "CLOUDFLARE_EMAIL"
-const apiKeyEnv string = "CLOUDFLARE_APIKEY"
-const recordsEnv string = "CLOUDFLARE_RECORDS"
+var (
+    env = flag.Bool(envCli, false, "load from env instead of cli params")
+    apiKey = flag.String(apiKeyCli, "", "api key from cloudflare")
+    email = flag.String(emailCli, "", "email address for cloudflare")
+    records = flag.String(recordsCli, "", "the names of the records to update")
 
-var key = flag.String(apiKeyCli, "", "api key from cloudflare")
-
-var email = flag.String(emailCli, "", "email address for cloudflare")
-
-var records = flag.String(recordsCli, "", "the names of the records to update")
-
-var newIP string
+    newIP string
+)
 
 // very incomplete, but as much as we should need
 type zoneListResponse struct {
@@ -172,30 +176,32 @@ func updateRecord(client *http.Client, zoneID, recordID, name, typ, content stri
 
 func init() {
     flag.Parse()
-    recordsToUpdate = strings.Split(*records, ",")
 
-    if *records == "" && os.Getenv(recordsEnv) == "" {
-        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", recordsCli, recordsEnv))
+    if *env {
+        *records = os.Getenv(recordsEnv)
+        *email = os.Getenv(emailEnv)
+        *apiKey = os.Getenv(apiKeyEnv)
     }
 
-    if *records == "" && os.Getenv(emailEnv) == "" {
-        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", emailCli, emailEnv))
+    if *records == "" {
+        panic(fmt.Sprintf("--%s was empty/missing or %s was empty", recordsCli, recordsEnv))
     }
 
-    if *records == "" && os.Getenv(apiKeyEnv) == "" {
-        panic(fmt.Sprintf("--%s was empty/missing and %s was empty", apiKeyCli, apiKeyEnv))
+    if *email == "" {
+        panic(fmt.Sprintf("--%s was empty/missing or %s was empty", emailCli, emailEnv))
+    }
+
+    if *apiKey== "" {
+        panic(fmt.Sprintf("--%s was empty/missing or %s was empty", apiKeyCli, apiKeyEnv))
     }
 
     newIP = getWanIP()
-
-    if len(*key) == 0 {
-        panic("must provide api key")
-    }
+    recordsToUpdate = strings.Split(*records, ",")
 }
 
 func authHeaders(header http.Header) {
     header.Set("X-Auth-Email", *email)
-    header.Set("X-Auth-Key", *key)
+    header.Set("X-Auth-Key", *apiKey)
 }
 
 func main() {
@@ -225,3 +231,4 @@ func main() {
         }
     }
 }
+
