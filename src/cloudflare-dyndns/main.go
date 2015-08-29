@@ -220,7 +220,7 @@ func main() {
                     }
                     log.Printf("updating %s...\n", record.Name)
 
-                    err := updateRecord(client, zone.ID, record.ID, record.Name, record.Type, record.Content)
+                    err := updateRecord(client, zone.ID, record.ID, record.Name, record.Type, newIP)
                     if err != nil {
                         panic(err)
                     }
