@@ -16,7 +16,7 @@ First, update `cloudflare-dyndns.service` to point to the location of the built 
 
 Second, copy `cloudflare-dyndns.config.example` to `cloudflare-dyndns.config` and make the appropiate changes to the file, inserting your CloudFlare email and api-key.
 
-Third, edi the `cloudflare-dyndns.timer` unit file so that the app will run as often as you need. It's set to run every 5 minutes by default.
+Third, edit the `cloudflare-dyndns.timer` unit file so that the app will run as often as you need. It's set to run every 5 minutes by default.
 
 Finally, execute `make install-systemd` to install the config file and the systemd unit files.
 
