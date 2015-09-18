@@ -3,7 +3,7 @@ Description=Cloudflare-dyndns
 
 [Service]
 Type=simple
-ExecStart=/home/cole/Code/colemickens/cloudflare-dyndns/bin/cloudflare-dyndns
+ExecStart=/home/cole/Code/colemickens/cloudflare-dyndns/bin/cloudflare-dyndns --env
 EnvironmentFile=/etc/cloudflare-dyndns/cloudflare-dyndns.config
 
 [Install]
