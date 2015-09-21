@@ -1,3 +1,7 @@
+I will be maintaining the rust version of this going forward: [cloudflare-dyndns-rust](https://github.com/colemickens/cloudflare-dyndns-rust), so please give it a shot and file any issues against that, if you'd like me to take a look.
+
+---
+
 # cloudflare-dyndns
 
 This is a tool (golang app + systemd unit files) that will run a dynamic DNS client on your machine in order to keep Cloudflare DNS records up to date and pointing at the network that this tool runs from.
